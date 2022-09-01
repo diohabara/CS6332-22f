@@ -8,6 +8,7 @@ version = "0.1.0"
 jupyter = "^1.0.0"
 pandas = "^1.4.3"
 python = "^3.10"
+dpkt = "^1.9.8"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.971"
