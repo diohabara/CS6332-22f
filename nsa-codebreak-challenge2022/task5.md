@@ -7,3 +7,9 @@
 > Extract the attacker's private key from the core dump, and use it to decrypt the file.
 > Hint: if you have the private key in PEM format, you should be able to decrypt the file with the command openssl pkeyutl -decrypt -inkey privatekey.pem -in data.enc
 > Enter the token value extracted from the decrypted file.
+
+
+
+```python
+
+```
