@@ -1,12 +1,12 @@
+#!/usr/bin/env python3
+
 from pwn import *
 from pwn import gdb
 
 io = gdb.debug(
     "./malware",
     """
-    # set breakpoint at password
-    break password
-    continue
+    break input_func
     """,
     log_level="debug",
 )
