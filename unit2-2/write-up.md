@@ -526,14 +526,26 @@ candl{n0_ENVP_th1$_t1m3}
 
 The problem statement is below.
 
-```md
+````md
+Practice return-oriented Programming!
+Call:
 
+```c
+    setregid(50000,50000);
+    execve("/bin/sh", 0, 0);
 ```
+````
 
 ## (bonus) 9-rop1-arm
 
 The problem statement is below.
 
-```md
+````md
+Call:
 
+```c
+    open("flag", 0, 0);
+    read(3, global_variable_addr, size);
+    write(1, global_variable_addr, size);
 ```
+````
