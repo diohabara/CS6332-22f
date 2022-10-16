@@ -95,7 +95,7 @@ with open("shellcode.bin", "wb") as shellcode_file:
 
 ```
 
-Then, you get the flag.
+You've the flag.
 
 ```bash
 TXK220008@ctf-vm3:~/unit2/1-shellcode-arm $ ./solve1.py; ./1-shellcode-arm
