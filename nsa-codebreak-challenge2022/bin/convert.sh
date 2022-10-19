@@ -3,9 +3,7 @@
 # Usage: convert.sh
 set -eou pipefail
 for f in *.ipynb; do
-    file=${f%.*}
-    jupyter nbconvert --to markdown "$file"
-    pandoc -s "$file".md -o "docs/$file".pdf
+    # file=${f%.*}
+    jupyter nbconvert --output-dir='./docs' --execute --to pdf "$f"
 done
-shfmt -w -i 4 convert.sh
-zip -r solutions docs
+shfmt -w -i 4 bin/convert.sh
