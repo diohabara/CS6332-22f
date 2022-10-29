@@ -26,6 +26,7 @@ Relocation section '.rela.plt' at offset 0x4e0 contains 11 entries:
 000000601068  000c00000007 R_X86_64_JUMP_SLO 0000000000000000 exit@GLIBC_2.2.5 + 0
 kjee@ctf-vm1.syssec.utdallas.edu:/home/kjee $
 ```
+
 And we expect your implement should work as follows,
 
 ```bash
@@ -41,4 +42,5 @@ Offset          Symbol name
 ...
 000000601068    exit
 ```
+
 Please ELFIO tutorial code regarding how to use ELFIO and readelf.c source to confirm how to find relocs entries and get their addresses.
