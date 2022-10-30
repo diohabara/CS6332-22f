@@ -2,6 +2,7 @@
 
 ## Problem Statement
 
+````txt
 To protect the Global Offet Table (GOT) from being overwritten by the attacker, you first need to identify the section and memory address range. In this part, you will extend ELFIO to get a list of GOT entries and their address (Relocation Offset). We expect you to implement readelf -reloc so that list of GOT entries and their address at runtime.
 
 For a given binary, readelf -reloc will give you the following output.
@@ -44,3 +45,6 @@ Offset          Symbol name
 ```
 
 Please ELFIO tutorial code regarding how to use ELFIO and readelf.c source to confirm how to find relocs entries and get their addresses.
+````
+
+## Write-up
