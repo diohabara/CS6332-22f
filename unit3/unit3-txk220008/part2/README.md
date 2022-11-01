@@ -48,3 +48,60 @@ Please ELFIO tutorial code regarding how to use ELFIO and readelf.c source to co
 ````
 
 ## Write-up
+
+There is an API called [`get_entry()`](https://github.com/serge1/ELFIO/blob/main/elfio/elfio_relocation.hpp#L122), which sets a symbol's offset and name. Use this API while iterating over a section.
+
+What we want is only symbols in `.rela.plt` section, so compare section's name using [`get_name()`](https://github.com/serge1/ELFIO/blob/b99697792573588574793408a30fdffaa1c81f43/elfio/elfio_section.hpp#L98) method.
+
+Run it like this.
+
+```bash
+make
+./part2 <elf_file>
+```
+
+E.g., you can apply the program to `aw0-64`, which we solved in the previous parts.
+
+```bash
+TXK220008@ctf-vm1:~/unit3/0-aw0-64$ ./part2 aw0-64
+GOT range: 000000602018 ~ 000000602068
+
+Offset          Symbol name
+---------------------------------
+000000602018    puts
+000000602020    __stack_chk_fail
+000000602028    printf
+000000602030    read
+000000602038    __libc_start_main
+000000602040    fgets
+000000602048    execve
+000000602050    prctl
+000000602058    __isoc99_sscanf
+000000602060    getegid
+000000602068    setregid
+```
+
+```bash
+TXK220008@ctf-vm1:~/unit3/0-aw0-64$ readelf --relocs ./aw0-64
+
+Relocation section '.rela.dyn' at offset 0x518 contains 2 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000601ff8  000800000006 R_X86_64_GLOB_DAT 0000000000000000 __gmon_start__ + 0
+000000602080  000d00000005 R_X86_64_COPY     0000000000602080 stdin@GLIBC_2.2.5 + 0
+
+Relocation section '.rela.plt' at offset 0x548 contains 11 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000602018  000100000007 R_X86_64_JUMP_SLO 0000000000000000 puts@GLIBC_2.2.5 + 0
+000000602020  000200000007 R_X86_64_JUMP_SLO 0000000000000000 __stack_chk_fail@GLIBC_2.4 + 0
+000000602028  000300000007 R_X86_64_JUMP_SLO 0000000000000000 printf@GLIBC_2.2.5 + 0
+000000602030  000400000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
+000000602038  000500000007 R_X86_64_JUMP_SLO 0000000000000000 __libc_start_main@GLIBC_2.2.5 + 0
+000000602040  000600000007 R_X86_64_JUMP_SLO 0000000000000000 fgets@GLIBC_2.2.5 + 0
+000000602048  000700000007 R_X86_64_JUMP_SLO 0000000000000000 execve@GLIBC_2.2.5 + 0
+000000602050  000900000007 R_X86_64_JUMP_SLO 0000000000000000 prctl@GLIBC_2.2.5 + 0
+000000602058  000a00000007 R_X86_64_JUMP_SLO 0000000000000000 __isoc99_sscanf@GLIBC_2.7 + 0
+000000602060  000b00000007 R_X86_64_JUMP_SLO 0000000000000000 getegid@GLIBC_2.2.5 + 0
+000000602068  000c00000007 R_X86_64_JUMP_SLO 0000000000000000 setregid@GLIBC_2.2.5 + 0
+```
+
+The program shows as expected.
