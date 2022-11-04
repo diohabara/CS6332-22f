@@ -4,7 +4,7 @@
 
 In this assignment, we build the binary with -fpie option; therefore, you no longer be able to find the GOT address range for GOT by only referring to ELF headers. You need to calculate the address at runtime referring to the base address of the section. Due to ASLR, the loader will map the .text section can be loaded to a different address every time you execute the binary.
 
-```
+```bash
 $ readelf --relocs fs-no-binary-pie-64
 
 ....

@@ -8,11 +8,19 @@ Extend the inscount example and count the number of memory write instructions.
 
 ## How to run
 
+- If you do not have a directory called `obj-intel64`, create it.
+
+  ```bash
+  mkdir obj-intel64
+  ```
+
 - Run and output the count
 
-```bash
-./run.sh
-```
+  ```bash
+  make -e obj-intel64/inscount.so
+  pin -t obj-intel64/inscount.so -- /bin/ls
+  cat inscount.out
+  ```
 
 ## write-up
 

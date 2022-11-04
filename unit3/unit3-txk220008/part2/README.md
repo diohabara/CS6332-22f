@@ -104,4 +104,4 @@ Relocation section '.rela.plt' at offset 0x548 contains 11 entries:
 000000602068  000c00000007 R_X86_64_JUMP_SLO 0000000000000000 setregid@GLIBC_2.2.5 + 0
 ```
 
-The program shows as expected.
+The program shows the section information as expected.
