@@ -109,7 +109,7 @@ You should now have the tools to identify the control (or branch) instructions a
 instruction, emulate its behavior, and binary patch the end of the following basic block. For each basic block you encounter, dump the instructions in that block in the same format as Lab3-3. You should stop this process when you hit the StopProfiling() function.
 Create a data structure to capture the start address of each basic block executed and the number of instructions. Run target program  (user_prog()) with different inputs and check the number of instructions (and basic blocks) executions.
 
-## Lab4-3: Memoizer (30 pt)
+## Lab4-3: Memorizer (30 pt)
 
 ### Problem Statement 4-3
 
@@ -127,7 +127,7 @@ As for an extra assignment,  you will extend the binary translator implementatio
 
 **NOTE:** This part is for [fib.c] and [isPrime.c], not for [fibp.c].
 
-## Lab4-5: Memoizer (30 pt)
+## Lab4-5: Memorizer (30 pt)
 
 ### Problem Statement 4-5
 
