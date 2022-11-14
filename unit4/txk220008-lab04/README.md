@@ -57,7 +57,7 @@ The first step will get you warmed up and comfortable with code patching. Look a
 
 ### Write-up 4-1
 
-To return the function immediately, insert this function in `StartProfiling`. This function makes the first instruction the `ret` instruction, which results in an immediate return.
+To return the function immediately, insert `ReturnImmediately` function in `StartProfiling`. This function makes the first instruction the `ret` instruction, which results in an immediate return.
 
 ```c
 void ReturnImmediately(void *func) { ((uint32_t *)func)[0] = 0xc3; }
