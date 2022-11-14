@@ -64,13 +64,6 @@ void ia32Decode(uint8_t *ptr, IA32Instr *instr) { NOT_IMPLEMENTED(); }
  *
  *********************************************************************/
 
-uint32_t extract_opcode(void *func, int index) {
-  return ((uint8_t *)func)[index];
-  // char *formatted_opcode = (char *)malloc(2 * sizeof(char));
-  // sprintf(formatted_opcode, "%02x", opcode);
-  // return strtol(formatted_opcode, NULL, 16);
-}
-
 void ReturnImmidiately(void *func) { ((uint32_t *)func)[0] = 0xc3; }
 
 void StartProfiling(void *func) { ReturnImmidiately(func); }
