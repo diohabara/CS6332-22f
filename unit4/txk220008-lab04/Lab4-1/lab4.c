@@ -64,9 +64,9 @@ void ia32Decode(uint8_t *ptr, IA32Instr *instr) { NOT_IMPLEMENTED(); }
  *
  *********************************************************************/
 
-void ReturnImmidiately(void *func) { ((uint32_t *)func)[0] = 0xc3; }
+void ReturnImmediately(void *func) { ((uint32_t *)func)[0] = 0xc3; }
 
-void StartProfiling(void *func) { ReturnImmidiately(func); }
+void StartProfiling(void *func) { ReturnImmediately(func); }
 
 void StopProfiling(void) {}
 
