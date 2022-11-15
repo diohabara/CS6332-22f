@@ -77,9 +77,29 @@ You should *patch* the first instruction on `user_prog()` with a callout. The ca
 
 **[Hint]** You will patch *user_prog()* to call [glue code][glue-IA32]. What is the format for `call` instruction?
 
-Try to add and run an aritrary code from the callout context by replacing *NOT_IMPLEMENTED()* inside *handleRetCallout()* with something else.
+Try to add and run an arbitrary code from the callout context by replacing *NOT_IMPLEMENTED()* inside *handleRetCallout()* with something else.
 
 ### Write-up 4-2
+
+The memory layout of this problem is like this
+
+![lab4-2](./img/lab4-2.svg)
+
+Just like [4-1](#lab4-1-patching-binary-to-return-20-pt), we overwrite memory to call `retCallout`.
+
+As `call` instruction of x86 calls a relative address, we need to calculate the relative address from `user_prog` to `*retCallout`.
+
+This is the part to calculate the pointer's address. Because I overwrite 8 bytes of the code, I subtract 8 from `(void *)&retCallout - func`.
+
+```c
+  uint32_t offset = (uint32_t)((void *)&retCallout - (func + 8));
+  printf("%x\n", offset);
+  ((uint8_t *)func)[0] = 0x90;
+  ((uint8_t *)func)[1] = 0x90;
+  ((uint8_t *)func)[2] = 0x90;
+  ((uint8_t *)func)[3] = 0xe8;
+  ((uint32_t *)func)[1] = offset;
+```
 
 ## Lab4-3: IA32 Instruction Decode (30 pt)
 
