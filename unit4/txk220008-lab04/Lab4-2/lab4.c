@@ -66,15 +66,16 @@ void ia32Decode(uint8_t *ptr, IA32Instr *instr) { NOT_IMPLEMENTED(); }
 
 void ReturnImmediately(void *func) { ((uint32_t *)func)[0] = 0xc3; }
 
-void StartProfiling(void *func) {
+void ReturnImmediatelySafely(void *func) {
   uint32_t offset = (uint32_t)((void *)&retCallout - (func + 8));
-  printf("%x\n", offset);
   ((uint8_t *)func)[0] = 0x90;
   ((uint8_t *)func)[1] = 0x90;
   ((uint8_t *)func)[2] = 0x90;
   ((uint8_t *)func)[3] = 0xe8;
   ((uint32_t *)func)[1] = offset;
 }
+
+void StartProfiling(void *func) { ReturnImmediatelySafely(func); }
 
 void StopProfiling(void) {}
 

@@ -92,13 +92,16 @@ As `call` instruction of x86 calls a relative address, we need to calculate the 
 This is the part to calculate the pointer's address. Because I overwrite 8 bytes of the code, I subtract 8 from `(void *)&retCallout - func`.
 
 ```c
+void ReturnImmediatelySafely(void *func) {
   uint32_t offset = (uint32_t)((void *)&retCallout - (func + 8));
-  printf("%x\n", offset);
   ((uint8_t *)func)[0] = 0x90;
   ((uint8_t *)func)[1] = 0x90;
   ((uint8_t *)func)[2] = 0x90;
   ((uint8_t *)func)[3] = 0xe8;
   ((uint32_t *)func)[1] = offset;
+}
+
+void StartProfiling(void *func) { ReturnImmediatelySafely(func); }
 ```
 
 ## Lab4-3: IA32 Instruction Decode (30 pt)
