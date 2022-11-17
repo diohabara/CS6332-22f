@@ -150,6 +150,26 @@ addr 0x8049355, opcode: 5d, len: 1, isCFlow: false
 addr 0x8049356, opcode: c3, len: 1, isCFlow: true
 ```
 
+### Write-up 4-3
+
+X86's instruction layout is like below. Numbers in parentheses are byte. Simply read a byte at a time and fill them in conditionally.
+
+```text
+| prefix(1) | opcode(0-3) | ModR/M(0-1) | SIB(0-1) | displacement(0-4) | immediate(0-4) |
+```
+
+I changed the definition of `IA32Instr` in `ia32_disas.h` like below so that I can maintain the information of the control flow.
+
+```c
+typedef struct {
+  bool isCFlow;
+  uint16_t opcode;
+  uint32_t imm;
+  uint8_t len;
+  uint8_t modRM;
+} IA32Instr;
+```
+
 ## Lab4-4: Control flow following and program profiling (50 pt)
 
 You should now have the tools to identify the control (or branch) instructions and follow the control flow of IA32 architecture. With this, you will extend [lab4.c] to implement the same binary patching / unpatching operations you did for the previous lab. Again, decode the instructions to be executed until you hit a control flow instruction. Binary patch that instruction to call you instead of doing the control flow. You can then return to the code knowing that you will be called before execution passes that point. When your handler is called, unpatch the instruction, emulate its behavior, and binary patch the end of the following basic block. For each basic block you encounter, dump the instructions in that block in the same format as Lab3-3. You should stop this process when you hit the `StopProfiling()` function. Create a data structure to capture the start address of each basic block executed and the number of instructions. Run target program  (`user_prog()`) with different inputs and check the number of instructions (and basic blocks) executions.
