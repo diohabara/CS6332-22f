@@ -172,7 +172,24 @@ typedef struct {
 
 ## Lab4-4: Control flow following and program profiling (50 pt)
 
-You should now have the tools to identify the control (or branch) instructions and follow the control flow of IA32 architecture. With this, you will extend [lab4.c] to implement the same binary patching / unpatching operations you did for the previous lab. Again, decode the instructions to be executed until you hit a control flow instruction. Binary patch that instruction to call you instead of doing the control flow. You can then return to the code knowing that you will be called before execution passes that point. When your handler is called, unpatch the instruction, emulate its behavior, and binary patch the end of the following basic block. For each basic block you encounter, dump the instructions in that block in the same format as Lab3-3. You should stop this process when you hit the `StopProfiling()` function. Create a data structure to capture the start address of each basic block executed and the number of instructions. Run target program  (`user_prog()`) with different inputs and check the number of instructions (and basic blocks) executions.
+You should now have the tools to identify the control (or branch) instructions and follow the control flow of IA32 architecture. With this, you will extend [lab4.c] to implement the same binary patching / unpatching operations you did for the previous lab. Again, decode the instructions to be executed until you hit a control flow instruction. Binary patch that instruction to call you instead of doing the control flow. You can then return to the code knowing that you will be called before execution passes that point. When your handler is called, unpatch the instruction, emulate its behavior, and binary patch the end of the following basic block. For each basic block you encounter, dump the instructions in that block in the same format as Lab4-3. You should stop this process when you hit the `StopProfiling()` function. Create a data structure to capture the start address of each basic block executed and the number of instructions. Run target program  (`user_prog()`) with different inputs and check the number of instructions (and basic blocks) executions.
+
+### Write-up 4-4
+
+Following are the callouts we need to implement in this section.
+
+- `jccCallout`
+- `jmpCallout`
+- `callCallout`
+- `retCallout`
+
+Taken from [Intel IA32 Vol1](https://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-vol-1-manual.html)'s page 78.
+
+![eflags](./img/eflags.png)
+
+Write conditional statements following the above picture.
+
+In `PatchToPrintDecodedInstructions`, decode every instruction first and do what's needed according to their types.
 
 ## Lab4-5: Memoizer (30 pt)
 
@@ -181,6 +198,60 @@ As you have seen from the profiling result (Lab4-4), the runtime cost of the rec
 To implement, you need to extend both Call and Ret handlers to observe input and ret values and associate them. For each function call, you will first check the global cache area for the stored result from the previous runs. If found, you will immediately return the cached value, or you will proceed to run the function body.
 
 **NOTE**: This assignment is for [fib.c] and [isPrime.c] not for [fibp.c].
+
+### Write-up 4-5
+
+Add new global variables to cache value per depth.
+
+```c
+// cache for fib
+uint32_t depth_to_value[CACHE_SIZE];
+// depth of the call stack
+int32_t depth = 0;
+```
+
+Increment `depth` when the program enters `call` and decrement `depth` when the program enters `ret`.
+
+And, if the `depth` is in cache in `handleCallCallout`, return the cached value so that we can save computational cost.
+
+```c
+void handleCallCallout(SaveRegs regs) {
+  total_block_size++;
+  depth++;
+  RestoreInstructionsFromBuffer();
+  printf(ANSI_COLOR_BLUE "---CallCallout---\n" ANSI_COLOR_RESET);
+  // early return
+  if (depth_to_value[depth] != 0) {
+    uint32_t offset = (void *)&retCallout - (next_to_patch_address);
+    regs.eax = depth_to_value[depth];
+    memcpy(callTarget, &offset, 4);
+    return;
+  }
+  uint32_t offset;
+  memcpy(&offset, control_buffer + 1, 4);
+  callTarget = next_to_patch_address + offset;
+  PrintInstructionsUntilControlFlow(callTarget);
+  PatchToPrintDecodedInstructions(callTarget);
+}
+
+void handleRetCallout(SaveRegs regs) {
+  total_block_size++;
+  RestoreInstructionsFromBuffer();
+  depth--;
+  printf(ANSI_COLOR_MAGENTA "---RetCallout---\n" ANSI_COLOR_RESET);
+  if (depth_to_value[depth] != 0) {
+    regs.eax = depth_to_value[depth];
+    return;
+  }
+  depth_to_value[depth] = regs.eax;
+  void *nextInstr = regs.retPC;
+  if (nextInstr < (void *)&user_prog) {
+    return;
+  }
+  PrintInstructionsUntilControlFlow(nextInstr);
+  PatchToPrintDecodedInstructions(nextInstr);
+}
+```
 
 ## Resources
 
