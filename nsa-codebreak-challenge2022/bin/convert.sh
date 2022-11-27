@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # Convert jupyter files to markdown
-# Usage: convert.sh
+# Usage: ./bin/convert.sh at root of nsa-codebreaker-challenge2022
 set -eou pipefail
 for f in *.ipynb; do
-    # file=${f%.*}
     jupyter nbconvert --output-dir='./docs' --execute --to pdf "$f"
 done
-shfmt -w -i 4 bin/convert.sh
