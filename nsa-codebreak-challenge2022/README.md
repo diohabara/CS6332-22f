@@ -1,8 +1,21 @@
 # NSA CodeBreaker Challenge 2022
 
+## Write-ups
+
 - [A1](./a1.ipynb)
 - [B1](./b1.ipynb)
 - [A2](./a2.ipynb)
+
+## How to build
+
+Dependencies
+
+- `jupyter`
+- `pandas`
+
+```bash
+./bin/convert.sh
+```
 
 ## References
 
