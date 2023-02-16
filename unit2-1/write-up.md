@@ -10,7 +10,6 @@ from pwn import *
 ```
 
 - [Write-up for Unit2-1](#write-up-for-unit2-1)
-
   - [1-shellcode-32](#1-shellcode-32)
   - [2-shellcode-64](#2-shellcode-64)
   - [3-nonzero-shellcode-32](#3-nonzero-shellcode-32)
@@ -24,17 +23,14 @@ from pwn import *
 
 The problem statement is below.
 
-`````md
+```md
 Write a 32-bit shellcode that runs:
 
-```c
 setregid(getegid(), getegid())
 execve("/bin/sh", 0, 0);
-```
 
 and put the shellcode binary (shellcode.bin) into this directory.
-
-````
+```
 
 The solution seems straightforward. Write assembly to execute the command above.
 
@@ -71,7 +67,7 @@ mov     edx, 0
 int     0x80
 """
 )
-````
+```
 
 This is the code to run the assembly.
 
@@ -95,17 +91,14 @@ CS6332{execve_bin_sh}
 
 The problem statement is below.
 
-````md
+```md
 Write a 64-bit shellcode that runs:
 
-```c
 setregid(getegid(), getegid())
 execve("/bin/sh", 0, 0);
-```
 
 and put the shellcode binary (shellcode.bin) into this directory.
-````
-`````
+```
 
 The only difference from `1-shellcode-32` is that this problem uses 64-bit program. Bear it in mind and solve it.
 
@@ -172,21 +165,17 @@ CS6332{exEcvE_b1n_5h
 
 The problem statement is below
 
-````md
+```md
 Write a 32-bit shellcode that runs:
 
-```c
 setregid(getegid(), getegid())
 execve("/bin/sh", 0, 0);
-```
-````
 
 and put the shellcode binary (shellcode.bin) into this directory.
 
 Your shellcode must not have zero byte.
 Check that with make objdump and make print. No 00 or \x00!
-
-````
+```
 
 The problem here is how to write `mov <register> <immediate_value>`
 
@@ -195,7 +184,7 @@ For example, the `mov eax, 0x32` contains `0x00`, i.e., a zero byte.
 ```bash
 >>> asm("mov eax, 0x32")
 b'\xb82\x00\x00\x00'
-````
+```
 
 We can do it using `xor` and `add`. In the above case, we can write like this.
 
@@ -262,19 +251,17 @@ CS6332{push_aNd_X0R}
 
 The problem statement is below.(fixed typo)
 
-````md
+```md
 Write a 32-bit shellcode that runs:
 
-```c
 setregid(getegid(), getegid())
 execve("/bin/sh", 0, 0);
-```
 
 and put the shellcode binary (shellcode.bin) into this directory.
 
 Your shellcode must not have zero byte.
 Check that with make objdump and make print. No 00 or \x00!
-````
+```
 
 Basically, the same as 32-bit version.
 
