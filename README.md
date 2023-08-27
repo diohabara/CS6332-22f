@@ -1,4 +1,4 @@
-# cs6322-f22
+# CS 6322 System Security and Binary Program Analysis 2022 Fall
 
 <https://cs6332-f22.syssec.org/>
 
